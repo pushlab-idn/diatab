@@ -1549,217 +1549,161 @@ if (reversed == null) { reversed = false; }
 	}
 	this.frame_23 = function() {
 		const game = this;
-		// ====== GAME SETUP ======
-		game.bullets = [];
-		game.bulletTemplate.visible = false;
-		game.targets = [game.balls_target1, game.balls_target2, game.balls_target3, game.balls_target4];
-		game.activeTargets = game.targets.filter(t => t != null);
-		game.gameWon = false;
-		game.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-		// ====== TOUCH/MOBILE SUPPORT ======
-		function initMobileControls() {
-		    if (game.isTouchDevice) {
-		        // Add CSS to prevent touch delays and highlights
-		        const style = document.createElement('style');
-		        style.textContent = `
-		            canvas {
-		                touch-action: none;
-		                -webkit-tap-highlight-color: transparent;
-		            }
-		        `;
-		        document.head.appendChild(style);
-		        // Add viewport meta tag if missing
-		        if (!document.querySelector('meta[name="viewport"]')) {
-		            const meta = document.createElement('meta');
-		            meta.name = "viewport";
-		            meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
-		            document.head.appendChild(meta);
-		        }
-		    }
-		}
-		// ====== POP-OUT EFFECT ======
-		function createPopEffect(target) {
-		    const explosion = new createjs.Container();
-		    explosion.x = target.x;
-		    explosion.y = target.y;
-		    game.addChild(explosion);
-		    for (let i = 0; i < 8; i++) {
-		        const particle = new createjs.Shape();
-		        const angle = Math.random() * Math.PI * 2;
-		        const speed = 3 + Math.random() * 5;
-		        const size = 5 + Math.random() * 10;
-		        particle.graphics.beginFill(target.color || "#FF0000").drawCircle(0, 0, size);
-		        particle.vx = Math.cos(angle) * speed;
-		        particle.vy = Math.sin(angle) * speed;
-		        explosion.addChild(particle);
-		    }
-		    explosion.addEventListener("tick", function() {
-		        let allInvisible = true;
-		        explosion.children.forEach(p => {
-		            p.x += p.vx;
-		            p.y += p.vy;
-		            p.alpha *= 0.95;
-		            p.scaleX = p.scaleY *= 0.97;
-		            if (p.alpha > 0.1) allInvisible = false;
-		        });
-		        if (allInvisible) {
-		            game.removeChild(explosion);
-		            explosion.removeAllEventListeners();
-		        }
-		    });
-		}
-		// ====== SHOOTER CONTROL ======
-		// ====== UPDATED SHOOTER CONTROL ======
-		function updateShooterRotation() {
-		    // Get input position
-		    let mouseX, mouseY;
-		    if (game.isTouchDevice && game.lastTouch) {
-		        mouseX = game.lastTouch.x - game.x;
-		        mouseY = game.lastTouch.y - game.y;
-		    } else {
-		        mouseX = game.stage.mouseX - game.x;
-		        mouseY = game.stage.mouseY - game.y;
-				// mouseX = event.clientX;
-		        // mouseY = event.clientY;
-		    }
-		    // Calculate angle
-		    const dx = mouseX - game.shooter.x;
-		    const dy = mouseY - game.shooter.y;
-		    let angle = Math.atan2(dy, dx) * (180/Math.PI);
-		    // Constrain to top 180 degrees (0 to -180 left, 0 to 180 right)
-		    angle = Math.max(Math.min(angle, 0), -180);
-		    // Smooth rotation (optional)
-		    const rotationSpeed = 5; // Lower = smoother, higher = snappier
-		    game.shooter.rotation += (angle - game.shooter.rotation) / rotationSpeed;
-		    // Alternative: Direct set rotation
-		    // game.shooter.rotation = angle;
-		}
-		// ====== VISUAL GUIDE (DEBUGGING) ======
-		function createRotationLimits() {
-		    // Left limit line (-180 degrees)
-		    const leftLimit = new createjs.Shape();
-		    leftLimit.graphics.setStrokeStyle(1)
-		        .beginStroke("#FF0000")
-		        .moveTo(game.shooter.x, game.shooter.y)
-		        .lineTo(game.shooter.x - 100, game.shooter.y - 0.01); // Near horizontal
-		    // Right limit line (0 degrees)
-		    const rightLimit = new createjs.Shape();
-		    rightLimit.graphics.setStrokeStyle(1)
-		        .beginStroke("#00FF00")
-		        .moveTo(game.shooter.x, game.shooter.y)
-		        .lineTo(game.shooter.x + 100, game.shooter.y - 0.01); // Near horizontal
-		    game.addChild(leftLimit, rightLimit);
-		    // Remove after debugging
-		    setTimeout(() => game.removeChild(leftLimit, rightLimit), 3000);
-		}
-		// Call this during initialization if you want to visualize limits
-		// createRotationLimits();
-		// ====== BULLET SYSTEM ======
-		function fireBullet(evt) {
-		    // Get position based on device type
-		    let posX, posY;
-		    if (game.isTouchDevice && evt.changedTouches) {
-		        const touch = evt.changedTouches[0];
-		        const rect = game.stage.canvas.getBoundingClientRect();
-		        posX = touch.clientX - rect.left;
-		        posY = touch.clientY - rect.top;
-		        // Visual feedback for touch
-		        const touchEffect = new createjs.Shape();
-		        touchEffect.graphics.beginFill("rgba(255,255,255,0.3)").drawCircle(posX, posY, 30);
-		        game.addChild(touchEffect);
-		        createjs.Tween.get(touchEffect).to({alpha: 0, scaleX: 1.5, scaleY: 1.5}, 300)
-		            .call(() => game.removeChild(touchEffect));
-		    } else {
-		        posX = evt.stageX;
-		        posY = evt.stageY;
-		    }
-		    // Create bullet
-		    const bullet = game.bulletTemplate.clone();
-		    bullet.visible = true;
-		    // Position at shooter's barrel
-		    const angle = game.shooter.rotation * (Math.PI/180);
-		    bullet.x = game.shooter.x + Math.cos(angle) * 30;
-		    bullet.y = game.shooter.y + Math.sin(angle) * 30;
-		    // Calculate direction to touch/click
-		    const dx = posX - bullet.x;
-		    const dy = posY - bullet.y;
-		    const dist = Math.sqrt(dx*dx + dy*dy);
-		    const speed = 12;
-		    bullet.vx = (dx/dist) * speed;
-		    bullet.vy = (dy/dist) * speed;
-		    game.addChild(bullet);
-		    game.bullets.push(bullet);
-		    // Mobile optimization
-		    if (game.isTouchDevice) {
-		        game.lastTouch = { x: posX, y: posY };
-		    }
-		}
-		// ====== INPUT HANDLING ======
-		function setupInput() {
-		    // Mouse/touch events
-		    game.stage.addEventListener("stagemousedown", fireBullet);
-		    game.stage.addEventListener("touchstart", function(evt) {
-		        evt.preventDefault();
-		        fireBullet(evt);
-		    });
-		    // Track touch position for rotation
-		    if (game.isTouchDevice) {
-		        game.stage.addEventListener("touchmove", function(evt) {
-		            const touch = evt.changedTouches[0];
-		            const rect = game.stage.canvas.getBoundingClientRect();
-		            game.lastTouch = {
-		                // x: touch.clientX - rect.left,
-		                // y: touch.clientY - rect.top
-						x : event.touches[0].clientX - rect.left,
-						y : event.touches[0].clientY - rect.top
-		            };
-		        });
-		    }
-		}
-		// ====== COLLISION SYSTEM ======
-		function checkCollisions() {
-		    for (let i = game.bullets.length-1; i >= 0; i--) {
-		        const bullet = game.bullets[i];
-		        for (let j = game.activeTargets.length-1; j >= 0; j--) {
-		            const target = game.activeTargets[j];
-		            const dx = bullet.x - target.x;
-		            const dy = bullet.y - target.y;
-		            if (Math.sqrt(dx*dx + dy*dy) < 30) {
-		                createPopEffect(target);
-		                target.visible = false;
-		                game.activeTargets.splice(j, 1);
-		                game.removeChild(bullet);
-		                game.bullets.splice(i, 1);
-		                if (game.activeTargets.length === 0 && !game.gameWon) {
-		                    game.gameWon = true;
-		                    setTimeout(() => game.gotoAndPlay("success"), 500);
-		                }
-		                break;
-		            }
-		        }
-		    }
-		}
-		// ====== GAME LOOP ======
-		function gameLoop() {
-		    updateShooterRotation();
-		    // Update bullets
-		    for (let i = game.bullets.length-1; i >= 0; i--) {
-		        const bullet = game.bullets[i];
-		        bullet.x += bullet.vx;
-		        bullet.y += bullet.vy;
-		        if (bullet.x < -100 || bullet.x > game.stage.canvas.width + 100 ||
-		            bullet.y < -100 || bullet.y > game.stage.canvas.height + 100) {
-		            game.removeChild(bullet);
-		            game.bullets.splice(i, 1);
-		        }
-		    }
-		    checkCollisions();
-		}
-		// ====== INITIALIZATION ======
-		initMobileControls();
-		setupInput();
-		game.addEventListener("tick", gameLoop);
-	}
+
+// ====== GAME SETUP ======
+game.bullets = [];
+game.bulletTemplate.visible = false;
+game.targets = [game.balls_target1, game.balls_target2, game.balls_target3, game.balls_target4];
+game.activeTargets = game.targets.filter(t => t != null);
+game.gameWon = false;
+game.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+// ====== RESPONSIVE SCALING HELPERS ======
+function getScaleFactor() {
+    const canvas = game.stage.canvas;
+    const styleWidth = parseInt(canvas.style.width) || canvas.width;
+    const styleHeight = parseInt(canvas.style.height) || canvas.height;
+    return {
+        x: canvas.width / styleWidth,
+        y: canvas.height / styleHeight
+    };
+}
+
+function convertPosition(x, y) {
+    const scale = getScaleFactor();
+    const rect = game.stage.canvas.getBoundingClientRect();
+    return {
+        x: (x - rect.left) * scale.x,
+        y: (y - rect.top) * scale.y
+    };
+}
+
+// ====== UPDATED SHOOTER CONTROL ======
+function updateShooterRotation() {
+    // Get input position
+    let mouseX, mouseY;
+    
+    if (game.isTouchDevice && game.lastTouch) {
+        const scaledPos = convertPosition(game.lastTouch.x, game.lastTouch.y);
+        mouseX = scaledPos.x;
+        mouseY = scaledPos.y;
+    } else {
+        const scaledPos = convertPosition(game.stage.mouseX, game.stage.mouseY);
+        mouseX = scaledPos.x;
+        mouseY = scaledPos.y;
+    }
+    
+    // Calculate angle
+    const dx = mouseX - game.shooter.x;
+    const dy = mouseY - game.shooter.y;
+    let angle = Math.atan2(dy, dx) * (180/Math.PI);
+    
+    // Constrain to top 180 degrees (0 to -180 left, 0 to 180 right)
+    angle = Math.max(Math.min(angle, 0), -180);
+    
+    // Smooth rotation
+    const rotationSpeed = 5;
+    game.shooter.rotation += (angle - game.shooter.rotation) / rotationSpeed;
+}
+
+// ====== UPDATED BULLET SYSTEM ======
+function fireBullet(evt) {
+    // Get position based on device type
+    let posX, posY;
+    
+    if (game.isTouchDevice && evt.changedTouches) {
+        const touch = evt.changedTouches[0];
+        const scaledPos = convertPosition(touch.clientX, touch.clientY);
+        posX = scaledPos.x;
+        posY = scaledPos.y;
+        
+        // Store raw touch for rotation tracking
+        game.lastTouch = { x: touch.clientX, y: touch.clientY };
+        
+        // Visual feedback for touch
+        const touchEffect = new createjs.Shape();
+        touchEffect.graphics.beginFill("rgba(255,255,255,0.3)").drawCircle(posX, posY, 30);
+        game.addChild(touchEffect);
+        createjs.Tween.get(touchEffect).to({alpha: 0, scaleX: 1.5, scaleY: 1.5}, 300)
+            .call(() => game.removeChild(touchEffect));
+    } else {
+        const scaledPos = convertPosition(evt.stageX, evt.stageY);
+        posX = scaledPos.x;
+        posY = scaledPos.y;
+    }
+    
+    // Create bullet
+    const bullet = game.bulletTemplate.clone();
+    bullet.visible = true;
+    
+    // Position at shooter's barrel
+    const angle = game.shooter.rotation * (Math.PI/180);
+    bullet.x = game.shooter.x + Math.cos(angle) * 30;
+    bullet.y = game.shooter.y + Math.sin(angle) * 30;
+    
+    // Calculate direction to touch/click
+    const dx = posX - bullet.x;
+    const dy = posY - bullet.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const speed = 12;
+    
+    bullet.vx = (dx/dist) * speed;
+    bullet.vy = (dy/dist) * speed;
+    
+    game.addChild(bullet);
+    game.bullets.push(bullet);
+}
+
+// ====== UPDATED INPUT HANDLING ======
+function setupInput() {
+    // Mouse/touch events
+    game.stage.addEventListener("stagemousedown", fireBullet);
+    game.stage.addEventListener("touchstart", function(evt) {
+        evt.preventDefault();
+        fireBullet(evt);
+    });
+    
+    // Track touch position for rotation
+    if (game.isTouchDevice) {
+        game.stage.addEventListener("touchmove", function(evt) {
+            const touch = evt.changedTouches[0];
+            game.lastTouch = {
+                x: touch.clientX,
+                y: touch.clientY
+            };
+        });
+    }
+}
+
+// ====== UPDATED GAME LOOP ======
+function gameLoop() {
+    updateShooterRotation();
+    
+    // Get scaled canvas dimensions
+    const canvas = game.stage.canvas;
+    const scaledWidth = canvas.width;
+    const scaledHeight = canvas.height;
+    
+    // Update bullets
+    for (let i = game.bullets.length-1; i >= 0; i--) {
+        const bullet = game.bullets[i];
+        bullet.x += bullet.vx;
+        bullet.y += bullet.vy;
+        
+        if (bullet.x < -100 || bullet.x > scaledWidth + 100 ||
+            bullet.y < -100 || bullet.y > scaledHeight + 100) {
+            game.removeChild(bullet);
+            game.bullets.splice(i, 1);
+        }
+    }
+    
+    checkCollisions();
+}
+
+// ====== INITIALIZATION ======
+initMobileControls();
+setupInput();
+game.addEventListener("tick", gameLoop);
 	this.frame_569 = function() {
 		// Enable stage interactions
 		this.stage.enableMouseOver(20);
