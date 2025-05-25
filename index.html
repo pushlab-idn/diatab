@@ -9,21 +9,35 @@
 -->
 <html>
 <head>
+<style>
+#canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0 auto;
+    touch-action: none; /* Prevent touch delays on mobile */
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+}
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent scrollbars */
+    background-color: #000; /* Optional: Match game background */
+}
+</style>
 <meta charset="UTF-8">
 <meta name="authoring-tool" content="Adobe_Animate_CC">
 <title>diatab-2</title>
 <!-- write your code here -->
 <!-- Load CreateJS first -->
-<!-- <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script> -->
+<script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
 
 <!-- Then load the collision library -->
-<!-- <script src="https://cdn.jsdelivr.net/npm/ndgmr.Collision@1.0.1/ndgmr.Collision.min.js"></script> -->
-<!-- <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script> -->
-<script src="script/ndgmr.collision.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ndgmr.Collision@1.0.1/ndgmr.Collision.min.js"></script>
 
 <!-- Then your Animate game script -->
-<!-- <script src="your-game-script.js"></script> -->
-<script src="script/createjs.min.js"></script>
+<script src="your-game-script.js"></script>
+<script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
 <script>
 (function (cjs, an) {
 var p; // shortcut to reference prototypes
@@ -1549,161 +1563,137 @@ if (reversed == null) { reversed = false; }
 	}
 	this.frame_23 = function() {
 		const game = this;
-
-// ====== GAME SETUP ======
-game.bullets = [];
-game.bulletTemplate.visible = false;
-game.targets = [game.balls_target1, game.balls_target2, game.balls_target3, game.balls_target4];
-game.activeTargets = game.targets.filter(t => t != null);
-game.gameWon = false;
-game.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-
-// ====== RESPONSIVE SCALING HELPERS ======
-function getScaleFactor() {
-    const canvas = game.stage.canvas;
-    const styleWidth = parseInt(canvas.style.width) || canvas.width;
-    const styleHeight = parseInt(canvas.style.height) || canvas.height;
-    return {
-        x: canvas.width / styleWidth,
-        y: canvas.height / styleHeight
-    };
-}
-
-function convertPosition(x, y) {
-    const scale = getScaleFactor();
-    const rect = game.stage.canvas.getBoundingClientRect();
-    return {
-        x: (x - rect.left) * scale.x,
-        y: (y - rect.top) * scale.y
-    };
-}
-
-// ====== UPDATED SHOOTER CONTROL ======
-function updateShooterRotation() {
-    // Get input position
-    let mouseX, mouseY;
-    
-    if (game.isTouchDevice && game.lastTouch) {
-        const scaledPos = convertPosition(game.lastTouch.x, game.lastTouch.y);
-        mouseX = scaledPos.x;
-        mouseY = scaledPos.y;
-    } else {
-        const scaledPos = convertPosition(game.stage.mouseX, game.stage.mouseY);
-        mouseX = scaledPos.x;
-        mouseY = scaledPos.y;
-    }
-    
-    // Calculate angle
-    const dx = mouseX - game.shooter.x;
-    const dy = mouseY - game.shooter.y;
-    let angle = Math.atan2(dy, dx) * (180/Math.PI);
-    
-    // Constrain to top 180 degrees (0 to -180 left, 0 to 180 right)
-    angle = Math.max(Math.min(angle, 0), -180);
-    
-    // Smooth rotation
-    const rotationSpeed = 5;
-    game.shooter.rotation += (angle - game.shooter.rotation) / rotationSpeed;
-}
-
-// ====== UPDATED BULLET SYSTEM ======
-function fireBullet(evt) {
-    // Get position based on device type
-    let posX, posY;
-    
-    if (game.isTouchDevice && evt.changedTouches) {
-        const touch = evt.changedTouches[0];
-        const scaledPos = convertPosition(touch.clientX, touch.clientY);
-        posX = scaledPos.x;
-        posY = scaledPos.y;
-        
-        // Store raw touch for rotation tracking
-        game.lastTouch = { x: touch.clientX, y: touch.clientY };
-        
-        // Visual feedback for touch
-        const touchEffect = new createjs.Shape();
-        touchEffect.graphics.beginFill("rgba(255,255,255,0.3)").drawCircle(posX, posY, 30);
-        game.addChild(touchEffect);
-        createjs.Tween.get(touchEffect).to({alpha: 0, scaleX: 1.5, scaleY: 1.5}, 300)
-            .call(() => game.removeChild(touchEffect));
-    } else {
-        const scaledPos = convertPosition(evt.stageX, evt.stageY);
-        posX = scaledPos.x;
-        posY = scaledPos.y;
-    }
-    
-    // Create bullet
-    const bullet = game.bulletTemplate.clone();
-    bullet.visible = true;
-    
-    // Position at shooter's barrel
-    const angle = game.shooter.rotation * (Math.PI/180);
-    bullet.x = game.shooter.x + Math.cos(angle) * 30;
-    bullet.y = game.shooter.y + Math.sin(angle) * 30;
-    
-    // Calculate direction to touch/click
-    const dx = posX - bullet.x;
-    const dy = posY - bullet.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const speed = 12;
-    
-    bullet.vx = (dx/dist) * speed;
-    bullet.vy = (dy/dist) * speed;
-    
-    game.addChild(bullet);
-    game.bullets.push(bullet);
-}
-
-// ====== UPDATED INPUT HANDLING ======
-function setupInput() {
-    // Mouse/touch events
-    game.stage.addEventListener("stagemousedown", fireBullet);
-    game.stage.addEventListener("touchstart", function(evt) {
-        evt.preventDefault();
-        fireBullet(evt);
-    });
-    
-    // Track touch position for rotation
-    if (game.isTouchDevice) {
-        game.stage.addEventListener("touchmove", function(evt) {
-            const touch = evt.changedTouches[0];
-            game.lastTouch = {
-                x: touch.clientX,
-                y: touch.clientY
-            };
-        });
-    }
-}
-
-// ====== UPDATED GAME LOOP ======
-function gameLoop() {
-    updateShooterRotation();
-    
-    // Get scaled canvas dimensions
-    const canvas = game.stage.canvas;
-    const scaledWidth = canvas.width;
-    const scaledHeight = canvas.height;
-    
-    // Update bullets
-    for (let i = game.bullets.length-1; i >= 0; i--) {
-        const bullet = game.bullets[i];
-        bullet.x += bullet.vx;
-        bullet.y += bullet.vy;
-        
-        if (bullet.x < -100 || bullet.x > scaledWidth + 100 ||
-            bullet.y < -100 || bullet.y > scaledHeight + 100) {
-            game.removeChild(bullet);
-            game.bullets.splice(i, 1);
-        }
-    }
-    
-    checkCollisions();
-}
-
-// ====== INITIALIZATION ======
-initMobileControls();
-setupInput();
-game.addEventListener("tick", gameLoop);
+		// ====== GAME SETUP ======
+		game.bullets = [];
+		game.bulletTemplate.visible = false;
+		game.targets = [game.balls_target1, game.balls_target2, game.balls_target3, game.balls_target4];
+		game.activeTargets = game.targets.filter(t => t != null);
+		game.gameWon = false;
+		game.isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+		// ====== RESPONSIVE SCALING HELPERS ======
+		function getScaleFactor() {
+		    const canvas = game.stage.canvas;
+		    const styleWidth = parseInt(canvas.style.width) || canvas.width;
+		    const styleHeight = parseInt(canvas.style.height) || canvas.height;
+		    return {
+		        x: canvas.width / styleWidth,
+		        y: canvas.height / styleHeight
+		    };
+		}
+		function convertPosition(x, y) {
+		    const scale = getScaleFactor();
+		    const rect = game.stage.canvas.getBoundingClientRect();
+		    return {
+		        x: (x - rect.left) * scale.x,
+		        y: (y - rect.top) * scale.y
+		    };
+		}
+		// ====== UPDATED SHOOTER CONTROL ======
+		function updateShooterRotation() {
+		    // Get input position
+		    let mouseX, mouseY;
+		    if (game.isTouchDevice && game.lastTouch) {
+		        const scaledPos = convertPosition(game.lastTouch.x, game.lastTouch.y);
+		        mouseX = scaledPos.x;
+		        mouseY = scaledPos.y;
+		    } else {
+		        const scaledPos = convertPosition(game.stage.mouseX, game.stage.mouseY);
+		        mouseX = scaledPos.x;
+		        mouseY = scaledPos.y;
+		    }
+		    // Calculate angle
+		    const dx = mouseX - game.shooter.x;
+		    const dy = mouseY - game.shooter.y;
+		    let angle = Math.atan2(dy, dx) * (180/Math.PI);
+		    // Constrain to top 180 degrees (0 to -180 left, 0 to 180 right)
+		    angle = Math.max(Math.min(angle, 0), -180);
+		    // Smooth rotation
+		    const rotationSpeed = 5;
+		    game.shooter.rotation += (angle - game.shooter.rotation) / rotationSpeed;
+		}
+		// ====== UPDATED BULLET SYSTEM ======
+		function fireBullet(evt) {
+		    // Get position based on device type
+		    let posX, posY;
+		    if (game.isTouchDevice && evt.changedTouches) {
+		        const touch = evt.changedTouches[0];
+		        const scaledPos = convertPosition(touch.clientX, touch.clientY);
+		        posX = scaledPos.x;
+		        posY = scaledPos.y;
+		        // Store raw touch for rotation tracking
+		        game.lastTouch = { x: touch.clientX, y: touch.clientY };
+		        // Visual feedback for touch
+		        const touchEffect = new createjs.Shape();
+		        touchEffect.graphics.beginFill("rgba(255,255,255,0.3)").drawCircle(posX, posY, 30);
+		        game.addChild(touchEffect);
+		        createjs.Tween.get(touchEffect).to({alpha: 0, scaleX: 1.5, scaleY: 1.5}, 300)
+		            .call(() => game.removeChild(touchEffect));
+		    } else {
+		        const scaledPos = convertPosition(evt.stageX, evt.stageY);
+		        posX = scaledPos.x;
+		        posY = scaledPos.y;
+		    }
+		    // Create bullet
+		    const bullet = game.bulletTemplate.clone();
+		    bullet.visible = true;
+		    // Position at shooter's barrel
+		    const angle = game.shooter.rotation * (Math.PI/180);
+		    bullet.x = game.shooter.x + Math.cos(angle) * 30;
+		    bullet.y = game.shooter.y + Math.sin(angle) * 30;
+		    // Calculate direction to touch/click
+		    const dx = posX - bullet.x;
+		    const dy = posY - bullet.y;
+		    const dist = Math.sqrt(dx*dx + dy*dy);
+		    const speed = 12;
+		    bullet.vx = (dx/dist) * speed;
+		    bullet.vy = (dy/dist) * speed;
+		    game.addChild(bullet);
+		    game.bullets.push(bullet);
+		}
+		// ====== UPDATED INPUT HANDLING ======
+		function setupInput() {
+		    // Mouse/touch events
+		    game.stage.addEventListener("stagemousedown", fireBullet);
+		    game.stage.addEventListener("touchstart", function(evt) {
+		        evt.preventDefault();
+		        fireBullet(evt);
+		    });
+		    // Track touch position for rotation
+		    if (game.isTouchDevice) {
+		        game.stage.addEventListener("touchmove", function(evt) {
+		            const touch = evt.changedTouches[0];
+		            game.lastTouch = {
+		                x: touch.clientX,
+		                y: touch.clientY
+		            };
+		        });
+		    }
+		}
+		// ====== UPDATED GAME LOOP ======
+		function gameLoop() {
+		    updateShooterRotation();
+		    // Get scaled canvas dimensions
+		    const canvas = game.stage.canvas;
+		    const scaledWidth = canvas.width;
+		    const scaledHeight = canvas.height;
+		    // Update bullets
+		    for (let i = game.bullets.length-1; i >= 0; i--) {
+		        const bullet = game.bullets[i];
+		        bullet.x += bullet.vx;
+		        bullet.y += bullet.vy;
+		        if (bullet.x < -100 || bullet.x > scaledWidth + 100 ||
+		            bullet.y < -100 || bullet.y > scaledHeight + 100) {
+		            game.removeChild(bullet);
+		            game.bullets.splice(i, 1);
+		        }
+		    }
+		    checkCollisions();
+		}
+		// ====== INITIALIZATION ======
+		initMobileControls();
+		setupInput();
+		game.addEventListener("tick", gameLoop);
+	}
 	this.frame_569 = function() {
 		// Enable stage interactions
 		this.stage.enableMouseOver(20);
@@ -1721,7 +1711,6 @@ game.addEventListener("tick", gameLoop);
 		    // Remove any existing listeners
 		    this.btn_link.removeAllEventListeners();
 		    // Add hover effect (optional)
-			
 		    this.btn_link.addEventListener("mouseover", function() {
 		        createjs.Tween.get(this).to({alpha: 1.0}, 200); // Full opacity on hover
 		    });
@@ -1966,14 +1955,12 @@ an.compositionLoaded = function(id) {
 an.getComposition = function(id) {
 	return an.compositions[id];
 }
-
-
 an.makeResponsive = function(isResp, respDim, isScale, scaleType, domContainers) {		
 	var lastW, lastH, lastS=1;		
 	window.addEventListener('resize', resizeCanvas);		
 	resizeCanvas();		
-	function resizeCanvas() {	
-		var w = lib.properties.width, h = lib.properties.height;	
+	function resizeCanvas() {			
+		var w = lib.properties.width, h = lib.properties.height;			
 		var iw = window.innerWidth, ih=window.innerHeight;			
 		var pRatio = window.devicePixelRatio || 1, xRatio=iw/w, yRatio=ih/h, sRatio=1;			
 		if(isResp) {                
@@ -1989,10 +1976,7 @@ an.makeResponsive = function(isResp, respDim, isScale, scaleType, domContainers)
 			}				
 			else if(scaleType==2) {					
 				sRatio = Math.max(xRatio, yRatio);				
-			}	
-			else if(scaleType==3) {					
-				sRatio = 1;			
-			}					
+			}			
 		}
 		domContainers[0].width = w * pRatio * sRatio;			
 		domContainers[0].height = h * pRatio * sRatio;
@@ -2008,7 +1992,6 @@ an.makeResponsive = function(isResp, respDim, isScale, scaleType, domContainers)
 		stage.tickOnUpdate = true;		
 	}
 }
-
 an.handleSoundStreamOnTick = function(event) {
 	if(!event.paused){
 		var stageChild = stage.getChildAt(0);
@@ -2073,8 +2056,7 @@ function handleComplete(evt,comp) {
 		createjs.Ticker.addEventListener("tick", stage);
 	}	    
 	//Code to support hidpi screens and responsive scaling.
-	// AdobeAn.makeResponsive(true,'both',true,3,[canvas,anim_container,dom_overlay_container]);	
-	// AdobeAn.makeResponsive([canvas,anim_container,dom_overlay_container]);	
+	AdobeAn.makeResponsive(true,'both',true,1,[canvas,anim_container,dom_overlay_container]);	
 	AdobeAn.compositionLoaded(lib.properties.id);
 	fnStartAnimation();
 }
@@ -2083,7 +2065,7 @@ function handleComplete(evt,comp) {
 </head>
 <body onload="init();" style="margin:0px;">
 	<div id="animation_container" style="background-color:rgba(255, 255, 255, 1.00); width:320px; height:480px">
-		<canvas id="canvas" width="320" height="480" style="position: relative; display: block; background-color:rgba(255, 255, 255, 1.00);"></canvas>
+		<canvas id="canvas" width="320" height="480" style="position: absolute; display: block; background-color:rgba(255, 255, 255, 1.00);"></canvas>
 		<div id="dom_overlay_container" style="pointer-events:none; overflow:hidden; width:320px; height:480px; position: absolute; left: 0px; top: 0px; display: block;">
 		</div>
 	</div>
