@@ -14,15 +14,16 @@
 <title>diatab-2</title>
 <!-- write your code here -->
 <!-- Load CreateJS first -->
-<script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+<!-- <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script> -->
 
 <!-- Then load the collision library -->
 <!-- <script src="https://cdn.jsdelivr.net/npm/ndgmr.Collision@1.0.1/ndgmr.Collision.min.js"></script> -->
-<script src="script\ndgmr.collision.js"></script>
+<!-- <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script> -->
+<script src="script/ndgmr.collision.js"></script>
 
 <!-- Then your Animate game script -->
 <!-- <script src="your-game-script.js"></script> -->
-<script src="script\createjs.min.js"></script>
+<script src="script/createjs.min.js"></script>
 <script>
 (function (cjs, an) {
 var p; // shortcut to reference prototypes
@@ -1772,6 +1773,7 @@ if (reversed == null) { reversed = false; }
 		    // Remove any existing listeners
 		    this.btn_link.removeAllEventListeners();
 		    // Add hover effect (optional)
+			
 		    this.btn_link.addEventListener("mouseover", function() {
 		        createjs.Tween.get(this).to({alpha: 1.0}, 200); // Full opacity on hover
 		    });
