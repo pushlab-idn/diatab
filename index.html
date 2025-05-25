@@ -1607,7 +1607,9 @@ if (reversed == null) { reversed = false; }
 		    });
 		}
 		// ====== SHOOTER CONTROL ======
+		// ====== UPDATED SHOOTER CONTROL ======
 		function updateShooterRotation() {
+		    // Get input position
 		    let mouseX, mouseY;
 		    if (game.isTouchDevice && game.lastTouch) {
 		        mouseX = game.lastTouch.x;
@@ -1616,10 +1618,38 @@ if (reversed == null) { reversed = false; }
 		        mouseX = game.stage.mouseX - game.x;
 		        mouseY = game.stage.mouseY - game.y;
 		    }
+		    // Calculate angle
 		    const dx = mouseX - game.shooter.x;
 		    const dy = mouseY - game.shooter.y;
-		    game.shooter.rotation = Math.atan2(dy, dx) * (180/Math.PI);
+		    let angle = Math.atan2(dy, dx) * (180/Math.PI);
+		    // Constrain to top 180 degrees (0 to -180 left, 0 to 180 right)
+		    angle = Math.max(Math.min(angle, 0), -180);
+		    // Smooth rotation (optional)
+		    const rotationSpeed = 5; // Lower = smoother, higher = snappier
+		    game.shooter.rotation += (angle - game.shooter.rotation) / rotationSpeed;
+		    // Alternative: Direct set rotation
+		    // game.shooter.rotation = angle;
 		}
+		// ====== VISUAL GUIDE (DEBUGGING) ======
+		function createRotationLimits() {
+		    // Left limit line (-180 degrees)
+		    const leftLimit = new createjs.Shape();
+		    leftLimit.graphics.setStrokeStyle(1)
+		        .beginStroke("#FF0000")
+		        .moveTo(game.shooter.x, game.shooter.y)
+		        .lineTo(game.shooter.x - 100, game.shooter.y - 0.01); // Near horizontal
+		    // Right limit line (0 degrees)
+		    const rightLimit = new createjs.Shape();
+		    rightLimit.graphics.setStrokeStyle(1)
+		        .beginStroke("#00FF00")
+		        .moveTo(game.shooter.x, game.shooter.y)
+		        .lineTo(game.shooter.x + 100, game.shooter.y - 0.01); // Near horizontal
+		    game.addChild(leftLimit, rightLimit);
+		    // Remove after debugging
+		    setTimeout(() => game.removeChild(leftLimit, rightLimit), 3000);
+		}
+		// Call this during initialization if you want to visualize limits
+		// createRotationLimits();
 		// ====== BULLET SYSTEM ======
 		function fireBullet(evt) {
 		    // Get position based on device type
